@@ -42,31 +42,31 @@ namespace andywiecko.BurstTriangulator
             public Triangle Flip() => (IdC, IdB, IdA);
             public Triangle WithShift(int i) => (IdA + i, IdB + i, IdC + i);
             public Triangle WithShift(int i, int j, int k) => (IdA + i, IdB + j, IdC + k);
-            public float GetSignedArea2(NativeList<float2> positions)
+            public double GetSignedArea2(NativeList<double2> positions)
             {
                 var (pA, pB, pC) = (positions[IdA], positions[IdB], positions[IdC]);
                 var pAB = pB - pA;
                 var pAC = pC - pA;
                 return Cross(pAB, pAC);
             }
-            public float GetArea2(NativeList<float2> positions) => math.abs(GetSignedArea2(positions));
+            public double GetArea2(NativeList<double2> positions) => math.abs(GetSignedArea2(positions));
             public override string ToString() => $"({IdA}, {IdB}, {IdC})";
         }
 
         private readonly struct Circle
         {
-            public readonly float2 Center;
-            public readonly float Radius;
-            public readonly float RadiusSq;
+            public readonly double2 Center;
+            public readonly double Radius;
+            public readonly double RadiusSq;
 
-            public Circle(float2 center, float radius)
+            public Circle(double2 center, double radius)
             {
                 Center = center;
                 Radius = radius;
                 RadiusSq = Radius * Radius;
             }
 
-            public void Deconstruct(out float2 center, out float radius)
+            public void Deconstruct(out double2 center, out double radius)
             {
                 center = Center;
                 radius = Radius;
@@ -128,19 +128,19 @@ namespace andywiecko.BurstTriangulator
                 public int Compare(int x, int y) => x < y ? 1 : -1;
             }
 
-            public NativeList<float2> outputPositions;
+            public NativeList<double2> outputPositions;
             public NativeList<int> outputTriangles;
             public NativeList<Triangle> triangles;
             public NativeList<Circle> circles;
             public NativeList<Edge3> trianglesToEdges;
-            public NativeHashMap<Edge, FixedList32Bytes<int>> edgesToTriangles;
+            public NativeParallelHashMap<Edge, FixedList32Bytes<int>> edgesToTriangles;
             public NativeList<Edge> constraintEdges;
 
             private NativeList<Edge> tmpPolygon;
             private NativeList<int> badTriangles;
             private NativeQueue<int> trianglesQueue;
             private NativeList<bool> visitedTriangles;
-            private NativeHashSet<int> potentialPointsToRemove;
+            private NativeParallelHashSet<int> potentialPointsToRemove;
             public NativeList<int> pointsToRemove;
             public NativeList<int> pointsOffset;
 
@@ -148,19 +148,19 @@ namespace andywiecko.BurstTriangulator
 
             public TriangulatorNativeData(int capacity, Allocator allocator)
             {
-                outputPositions = new NativeList<float2>(capacity, allocator);
+                outputPositions = new NativeList<double2>(capacity, allocator);
                 outputTriangles = new NativeList<int>(3 * capacity, allocator);
                 triangles = new NativeList<Triangle>(capacity, allocator);
                 circles = new NativeList<Circle>(capacity, allocator);
                 trianglesToEdges = new NativeList<Edge3>(capacity, allocator);
-                edgesToTriangles = new NativeHashMap<Edge, FixedList32Bytes<int>>(capacity, allocator);
+                edgesToTriangles = new NativeParallelHashMap<Edge, FixedList32Bytes<int>>(capacity, allocator);
                 constraintEdges = new NativeList<Edge>(capacity, allocator);
 
                 tmpPolygon = new NativeList<Edge>(capacity, allocator);
                 badTriangles = new NativeList<int>(capacity, allocator);
                 trianglesQueue = new NativeQueue<int>(allocator);
                 visitedTriangles = new NativeList<bool>(capacity, allocator);
-                potentialPointsToRemove = new NativeHashSet<int>(capacity, allocator);
+                potentialPointsToRemove = new NativeParallelHashSet<int>(capacity, allocator);
                 pointsToRemove = new NativeList<int>(capacity, allocator);
                 pointsOffset = new NativeList<int>(capacity, allocator);
             }
@@ -238,7 +238,7 @@ namespace andywiecko.BurstTriangulator
                 trianglesToEdges.RemoveAt(id);
             }
 
-            private void SearchForFirstBadTriangle(float2 p)
+            private void SearchForFirstBadTriangle(double2 p)
             {
                 for (int tId = 0; tId < triangles.Length; tId++)
                 {
@@ -252,7 +252,7 @@ namespace andywiecko.BurstTriangulator
                 }
             }
 
-            private void RecalculateBadTriangles(float2 p, bool constraint = false)
+            private void RecalculateBadTriangles(double2 p, bool constraint = false)
             {
                 while (trianglesQueue.TryDequeue(out var tId))
                 {
@@ -353,7 +353,7 @@ namespace andywiecko.BurstTriangulator
                 visitedTriangles.Length = triangles.Length;
             }
 
-            public int InsertPoint(float2 p)
+            public int InsertPoint(double2 p)
             {
                 var pId = outputPositions.Length;
                 outputPositions.Add(p);
@@ -430,7 +430,7 @@ namespace andywiecko.BurstTriangulator
                 return pId;
             }
 
-            public int InsertPointAtTriangleCircumcenter(float2 p, int tId, bool constraint = false)
+            public int InsertPointAtTriangleCircumcenter(double2 p, int tId, bool constraint = false)
             {
                 var pId = outputPositions.Length;
                 outputPositions.Add(p);
@@ -486,7 +486,7 @@ namespace andywiecko.BurstTriangulator
                 return SplitEdge(edge, constraint: true);
             }
 
-            public bool TriangleIsBad(Triangle triangle, float minimumArea2, float maximumArea2, float minimumAngle)
+            public bool TriangleIsBad(Triangle triangle, double minimumArea2, double maximumArea2, double minimumAngle)
             {
                 var area2 = triangle.GetArea2(outputPositions);
                 if (area2 < minimumArea2)
@@ -502,7 +502,7 @@ namespace andywiecko.BurstTriangulator
                 return AngleIsTooSmall(triangle, minimumAngle);
             }
 
-            private bool AngleIsTooSmall(Triangle triangle, float minimumAngle)
+            private bool AngleIsTooSmall(Triangle triangle, double minimumAngle)
             {
                 var (a, b, c) = triangle;
                 var (pA, pB, pC) = (outputPositions[a], outputPositions[b], outputPositions[c]);
@@ -511,7 +511,7 @@ namespace andywiecko.BurstTriangulator
                 var pBC = pC - pB;
                 var pCA = pA - pC;
 
-                var angles = math.float3
+                var angles = math.double3
                 (
                     Angle(pAB, -pCA),
                     Angle(pBC, -pAB),
@@ -644,17 +644,17 @@ namespace andywiecko.BurstTriangulator
             /// Expressed in <em>radians</em>.
             /// </remarks>
             [field: SerializeField]
-            public float MinimumAngle { get; set; } = math.radians(33);
+            public double MinimumAngle { get; set; } = math.radians(33);
             /// <summary>
             /// Triangle is <b>not</b> considered as <em>bad</em> if its area is smaller than <see cref="MinimumArea"/>.
             /// </summary>
             [field: SerializeField]
-            public float MinimumArea { get; set; } = 0.015f;
+            public double MinimumArea { get; set; } = 0.015f;
             /// <summary>
             /// Triangle is considered as <em>bad</em> if its area is greater than <see cref="MaximumArea"/>.
             /// </summary>
             [field: SerializeField]
-            public float MaximumArea { get; set; } = 0.5f;
+            public double MaximumArea { get; set; } = 0.5f;
             /// <summary>
             /// If <see langword="true"/> refines mesh using 
             /// <see href="https://en.wikipedia.org/wiki/Delaunay_refinement#Ruppert's_algorithm">Ruppert's algorithm</see>.
@@ -689,14 +689,14 @@ namespace andywiecko.BurstTriangulator
 
         public class InputData
         {
-            public NativeArray<float2> Positions { get; set; }
+            public NativeArray<double2> Positions { get; set; }
             public NativeArray<int> ConstraintEdges { get; set; }
-            public NativeArray<float2> HoleSeeds { get; set; }
+            public NativeArray<double2> HoleSeeds { get; set; }
         }
 
         public class OutputData
         {
-            public NativeList<float2> Positions => owner.data.outputPositions;
+            public NativeList<double2> Positions => owner.data.outputPositions;
             public NativeList<int> Triangles => owner.data.outputTriangles;
             private readonly Triangulator owner;
             public OutputData(Triangulator triangulator) => owner = triangulator;
@@ -707,11 +707,11 @@ namespace andywiecko.BurstTriangulator
         public OutputData Output { get; }
 
         [Obsolete("To get the result use this.Output instead.")]
-        public NativeArray<float2>.ReadOnly Positions => data.outputPositions.AsArray().AsReadOnly();
+        public NativeArray<double2>.ReadOnly Positions => data.outputPositions.AsArray().AsReadOnly();
         [Obsolete("To get the result use this.Output instead.")]
         public NativeArray<int>.ReadOnly Triangles => data.outputTriangles.AsArray().AsReadOnly();
         [Obsolete("To get the result use this.Output instead.")]
-        public NativeArray<float2> PositionsDeferred => data.outputPositions.AsDeferredJobArray();
+        public NativeArray<double2> PositionsDeferred => data.outputPositions.AsDeferredJobArray();
         [Obsolete("To get the result use this.Output instead.")]
         public NativeArray<int> TrianglesDeferred => data.outputTriangles.AsDeferredJobArray();
 
@@ -719,20 +719,20 @@ namespace andywiecko.BurstTriangulator
         private TriangulatorNativeData data;
 
         // Note: Cannot hide them in the `data` due to Unity.Jobs safty restrictions
-        private NativeArray<float2> tmpInputPositions;
-        private NativeArray<float2> tmpInputHoleSeeds;
-        private NativeList<float2> localPositions;
-        private NativeList<float2> localHoleSeeds;
-        private NativeReference<float2> com;
-        private NativeReference<float> scale;
+        private NativeArray<double2> tmpInputPositions;
+        private NativeArray<double2> tmpInputHoleSeeds;
+        private NativeList<double2> localPositions;
+        private NativeList<double2> localHoleSeeds;
+        private NativeReference<double2> com;
+        private NativeReference<double> scale;
 
         public Triangulator(int capacity, Allocator allocator)
         {
             data = new TriangulatorNativeData(capacity, allocator);
-            localPositions = new NativeList<float2>(capacity, allocator);
-            localHoleSeeds = new NativeList<float2>(capacity, allocator);
-            com = new NativeReference<float2>(allocator);
-            scale = new NativeReference<float>(1, allocator);
+            localPositions = new NativeList<double2>(capacity, allocator);
+            localHoleSeeds = new NativeList<double2>(capacity, allocator);
+            com = new NativeReference<double2>(allocator);
+            scale = new NativeReference<double>(1, allocator);
             Output = new OutputData(this);
         }
         public Triangulator(Allocator allocator) : this(capacity: 16 * 1024, allocator) { }
@@ -749,9 +749,9 @@ namespace andywiecko.BurstTriangulator
         public void Run() => Schedule().Complete();
 
         [Obsolete("Use this.Input to provide data and Schedule(JobHandle) or Run() to collect the result.")]
-        public JobHandle Schedule(NativeArray<float2>.ReadOnly positions, JobHandle dependencies = default)
+        public JobHandle Schedule(NativeArray<double2>.ReadOnly positions, JobHandle dependencies = default)
         {
-            var array = new NativeArray<float2>(positions.ToArray(), Allocator.TempJob);
+            var array = new NativeArray<double2>(positions.ToArray(), Allocator.TempJob);
             Input.Positions = array;
             dependencies = Schedule(dependencies);
             dependencies = array.Dispose(dependencies);
@@ -910,7 +910,7 @@ namespace andywiecko.BurstTriangulator
         private struct ValidateInputPositionsJob : IJob
         {
             [ReadOnly]
-            private NativeArray<float2> positions;
+            private NativeArray<double2> positions;
             private NativeReference<bool> isValidRef;
 
             public ValidateInputPositionsJob(Triangulator triangulator, NativeReference<bool> isValid)
@@ -966,10 +966,10 @@ namespace andywiecko.BurstTriangulator
         private struct InitialLocalTransformationJob : IJob
         {
             [ReadOnly]
-            private NativeArray<float2> positions;
-            private NativeReference<float2> comRef;
-            private NativeReference<float> scaleRef;
-            private NativeList<float2> localPositions;
+            private NativeArray<double2> positions;
+            private NativeReference<double2> comRef;
+            private NativeReference<double> scaleRef;
+            private NativeList<double2> localPositions;
 
             public InitialLocalTransformationJob(Triangulator triangulator)
             {
@@ -981,7 +981,7 @@ namespace andywiecko.BurstTriangulator
 
             public void Execute()
             {
-                float2 min = 0, max = 0, com = 0;
+                double2 min = 0, max = 0, com = 0;
                 foreach (var p in positions)
                 {
                     min = math.min(p, min);
@@ -1001,10 +1001,10 @@ namespace andywiecko.BurstTriangulator
         private struct CalculateLocalHoleSeedsJob : IJob
         {
             [ReadOnly]
-            private NativeArray<float2> holeSeeds;
-            private NativeList<float2> localHoleSeeds;
-            private NativeReference<float2>.ReadOnly comRef;
-            private NativeReference<float>.ReadOnly scaleRef;
+            private NativeArray<double2> holeSeeds;
+            private NativeList<double2> localHoleSeeds;
+            private NativeReference<double2>.ReadOnly comRef;
+            private NativeReference<double>.ReadOnly scaleRef;
 
             public CalculateLocalHoleSeedsJob(Triangulator triangulator)
             {
@@ -1030,11 +1030,11 @@ namespace andywiecko.BurstTriangulator
         [BurstCompile]
         private struct CalculateLocalPositionsJob : IJobParallelForDefer
         {
-            private NativeReference<float2>.ReadOnly comRef;
-            private NativeReference<float>.ReadOnly scaleRef;
-            private NativeArray<float2> localPositions;
+            private NativeReference<double2>.ReadOnly comRef;
+            private NativeReference<double>.ReadOnly scaleRef;
+            private NativeArray<double2> localPositions;
             [ReadOnly]
-            private NativeArray<float2> positions;
+            private NativeArray<double2> positions;
 
             public CalculateLocalPositionsJob(Triangulator triangulator)
             {
@@ -1061,9 +1061,9 @@ namespace andywiecko.BurstTriangulator
         [BurstCompile]
         private struct LocalToWorldTransformationJob : IJobParallelForDefer
         {
-            private NativeArray<float2> positions;
-            private NativeReference<float2>.ReadOnly comRef;
-            private NativeReference<float>.ReadOnly scaleRef;
+            private NativeArray<double2> positions;
+            private NativeReference<double2>.ReadOnly comRef;
+            private NativeReference<double>.ReadOnly scaleRef;
 
             public LocalToWorldTransformationJob(Triangulator triangulator)
             {
@@ -1090,8 +1090,8 @@ namespace andywiecko.BurstTriangulator
         private struct ClearDataJob : IJob
         {
             private TriangulatorNativeData data;
-            private NativeReference<float> scaleRef;
-            private NativeReference<float2> comRef;
+            private NativeReference<double> scaleRef;
+            private NativeReference<double2> comRef;
 
             public ClearDataJob(Triangulator triangulator)
             {
@@ -1111,7 +1111,7 @@ namespace andywiecko.BurstTriangulator
         private struct RegisterSuperTriangleJob : IJob
         {
             [ReadOnly]
-            private NativeArray<float2> inputPositions;
+            private NativeArray<double2> inputPositions;
             private TriangulatorNativeData data;
 
             public RegisterSuperTriangleJob(Triangulator triangulator)
@@ -1122,8 +1122,8 @@ namespace andywiecko.BurstTriangulator
 
             public void Execute()
             {
-                var min = (float2)float.MaxValue;
-                var max = (float2)float.MinValue;
+                var min = (double2)double.MaxValue;
+                var max = (double2)double.MinValue;
 
                 for (int i = 0; i < inputPositions.Length; i++)
                 {
@@ -1135,9 +1135,9 @@ namespace andywiecko.BurstTriangulator
                 var center = 0.5f * (min + max);
                 var r = 0.5f * math.distance(min, max);
 
-                var pA = center + r * math.float2(0, 2);
-                var pB = center + r * math.float2(-math.sqrt(3), -1);
-                var pC = center + r * math.float2(+math.sqrt(3), -1);
+                var pA = center + r * math.double2(0, 2);
+                var pB = center + r * math.double2(-math.sqrt(3), -1);
+                var pC = center + r * math.double2(+math.sqrt(3), -1);
 
                 var idA = data.InsertPoint(pA);
                 var idB = data.InsertPoint(pB);
@@ -1154,7 +1154,7 @@ namespace andywiecko.BurstTriangulator
         private struct DelaunayTriangulationJob : IJob
         {
             [ReadOnly]
-            private NativeArray<float2> inputPositions;
+            private NativeArray<double2> inputPositions;
             private TriangulatorNativeData data;
 
             public DelaunayTriangulationJob(Triangulator triangluator)
@@ -1178,7 +1178,7 @@ namespace andywiecko.BurstTriangulator
             [ReadOnly]
             private NativeArray<int> constraints;
             [ReadOnly]
-            private NativeArray<float2> positions;
+            private NativeArray<double2> positions;
             private NativeReference<bool> isValidRef;
 
             public ValidateInputConstraintEdges(Triangulator triangulator, NativeReference<bool> isValid)
@@ -1306,7 +1306,7 @@ namespace andywiecko.BurstTriangulator
         private struct CopyEdgesJob : IJob
         {
             [ReadOnly]
-            private NativeHashMap<Edge, FixedList32Bytes<int>> edgesToTriangles;
+            private NativeParallelHashMap<Edge, FixedList32Bytes<int>> edgesToTriangles;
             private NativeList<Edge> edges;
 
             public CopyEdgesJob(Triangulator triangulator, NativeList<Edge> edges)
@@ -1508,12 +1508,12 @@ namespace andywiecko.BurstTriangulator
         private interface IRefineMeshJobMode
         {
             void SplitEdge(Edge edge, TriangulatorNativeData data);
-            void InsertPointAtTriangleCircumcenter(float2 p, int tId, TriangulatorNativeData data);
+            void InsertPointAtTriangleCircumcenter(double2 p, int tId, TriangulatorNativeData data);
         }
 
         private readonly struct ConstraintDisable : IRefineMeshJobMode
         {
-            public void InsertPointAtTriangleCircumcenter(float2 p, int tId, TriangulatorNativeData data)
+            public void InsertPointAtTriangleCircumcenter(double2 p, int tId, TriangulatorNativeData data)
             {
                 data.InsertPointAtTriangleCircumcenter(p, tId);
             }
@@ -1526,7 +1526,7 @@ namespace andywiecko.BurstTriangulator
 
         private readonly struct ConstraintEnable : IRefineMeshJobMode
         {
-            public void InsertPointAtTriangleCircumcenter(float2 p, int tId, TriangulatorNativeData data)
+            public void InsertPointAtTriangleCircumcenter(double2 p, int tId, TriangulatorNativeData data)
             {
                 foreach (var e in data.constraintEdges)
                 {
@@ -1559,10 +1559,10 @@ namespace andywiecko.BurstTriangulator
         private struct RefineMeshJob<T> : IJob where T : struct, IRefineMeshJobMode
         {
             private TriangulatorNativeData data;
-            private readonly float minimumArea2;
-            private readonly float maximumArea2;
-            private readonly float minimumAngle;
-            private NativeReference<float>.ReadOnly scaleRef;
+            private readonly double minimumArea2;
+            private readonly double maximumArea2;
+            private readonly double minimumAngle;
+            private NativeReference<double>.ReadOnly scaleRef;
             private readonly T mode;
 
             public RefineMeshJob(Triangulator triangulator)
@@ -1663,10 +1663,10 @@ namespace andywiecko.BurstTriangulator
         private readonly struct PlantHoles : IPlantingSeedJobMode
         {
             [ReadOnly]
-            private readonly NativeArray<float2> seeds;
-            public PlantHoles(NativeArray<float2> seeds) => this.seeds = seeds;
+            private readonly NativeArray<double2> seeds;
+            public PlantHoles(NativeArray<double2> seeds) => this.seeds = seeds;
 
-            public static void PlantHoleSeedsStatic(TriangulatorNativeData data, NativeArray<float2> seeds)
+            public static void PlantHoleSeedsStatic(TriangulatorNativeData data, NativeArray<double2> seeds)
             {
                 foreach (var s in seeds)
                 {
@@ -1678,7 +1678,7 @@ namespace andywiecko.BurstTriangulator
                 }
             }
 
-            private static int FindTriangle(float2 p, TriangulatorNativeData data)
+            private static int FindTriangle(double2 p, TriangulatorNativeData data)
             {
                 var tId = 0;
                 foreach (var (idA, idB, idC) in data.triangles)
@@ -1701,8 +1701,8 @@ namespace andywiecko.BurstTriangulator
         private readonly struct PlantBoundaryAndHoles : IPlantingSeedJobMode
         {
             [ReadOnly]
-            private readonly NativeArray<float2> seeds;
-            public PlantBoundaryAndHoles(NativeArray<float2> seeds) => this.seeds = seeds;
+            private readonly NativeArray<double2> seeds;
+            public PlantBoundaryAndHoles(NativeArray<double2> seeds) => this.seeds = seeds;
             public void PlantBoundarySeed(TriangulatorNativeData data) => PlantBoundary.PlantBoundarySeedStatic(data);
             public void PlantHoleSeeds(TriangulatorNativeData data) => PlantHoles.PlantHoleSeedsStatic(data, seeds);
         }
@@ -1712,7 +1712,7 @@ namespace andywiecko.BurstTriangulator
         {
             private TriangulatorNativeData data;
             [ReadOnly]
-            private NativeArray<float2> positions;
+            private NativeArray<double2> positions;
             private readonly T mode;
 
             public PlantingSeedsJob(Triangulator triangulator, T mode)
@@ -1741,7 +1741,7 @@ namespace andywiecko.BurstTriangulator
             private NativeList<Triangle> triangles;
 
             [ReadOnly]
-            private NativeList<float2> outputPositions;
+            private NativeList<double2> outputPositions;
 
             [WriteOnly]
             private NativeList<int>.ParallelWriter outputTriangles;
@@ -1781,7 +1781,7 @@ namespace andywiecko.BurstTriangulator
         [BurstCompile]
         private struct CleanupPositionsJob : IJob
         {
-            private NativeList<float2> positions;
+            private NativeList<double2> positions;
             [ReadOnly]
             private NativeArray<int> pointsToRemove;
 
@@ -1807,16 +1807,16 @@ namespace andywiecko.BurstTriangulator
         #endregion
 
         #region Utils
-        private static float Angle(float2 a, float2 b) => math.atan2(Cross(a, b), math.dot(a, b));
-        private static float Cross(float2 a, float2 b) => a.x * b.y - a.y * b.x;
-        private static Circle GetCircumcenter(float2 a, float2 b, float2 c)
+        private static double Angle(double2 a, double2 b) => math.atan2(Cross(a, b), math.dot(a, b));
+        private static double Cross(double2 a, double2 b) => a.x * b.y - a.y * b.x;
+        private static Circle GetCircumcenter(double2 a, double2 b, double2 c)
         {
             var aLenSq = math.lengthsq(a);
             var bLenSq = math.lengthsq(b);
             var cLenSq = math.lengthsq(c);
 
             var d = 2 * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y));
-            var p = math.float2
+            var p = math.double2
             (
                 x: aLenSq * (b.y - c.y) + bLenSq * (c.y - a.y) + cLenSq * (a.y - b.y),
                 y: aLenSq * (c.x - b.x) + bLenSq * (a.x - c.x) + cLenSq * (b.x - a.x)
@@ -1825,22 +1825,22 @@ namespace andywiecko.BurstTriangulator
 
             return new Circle(center: p, radius: r);
         }
-        private static float3 Barycentric(float2 a, float2 b, float2 c, float2 p)
+        private static double3 Barycentric(double2 a, double2 b, double2 c, double2 p)
         {
             var (v0, v1, v2) = (b - a, c - a, p - a);
             var denInv = 1 / Cross(v0, v1);
             var v = denInv * Cross(v2, v1);
             var w = denInv * Cross(v0, v2);
             var u = 1.0f - v - w;
-            return math.float3(u, v, w);
+            return math.double3(u, v, w);
         }
-        private static bool PointInsideTriangle(float2 p, float2 a, float2 b, float2 c) => math.cmax(-Barycentric(a, b, c, p)) <= 0;
-        private static float CCW(float2 a, float2 b, float2 c) => math.sign(Cross(b - a, b - c));
-        private static bool PointLineSegmentIntersection(float2 a, float2 b0, float2 b1) =>
+        private static bool PointInsideTriangle(double2 p, double2 a, double2 b, double2 c) => math.cmax(-Barycentric(a, b, c, p)) <= 0;
+        private static double CCW(double2 a, double2 b, double2 c) => math.sign(Cross(b - a, b - c));
+        private static bool PointLineSegmentIntersection(double2 a, double2 b0, double2 b1) =>
             CCW(b0, b1, a) == 0 && math.all(a >= math.min(b0, b1) & a <= math.max(b0, b1));
-        private static bool EdgeEdgeIntersection(float2 a0, float2 a1, float2 b0, float2 b1) =>
+        private static bool EdgeEdgeIntersection(double2 a0, double2 a1, double2 b0, double2 b1) =>
             CCW(a0, a1, b0) != CCW(a0, a1, b1) && CCW(b0, b1, a0) != CCW(b0, b1, a1);
-        private static bool IsConvexQuadrilateral(float2 a, float2 b, float2 c, float2 d) =>
+        private static bool IsConvexQuadrilateral(double2 a, double2 b, double2 c, double2 d) =>
             CCW(a, c, b) != 0 && CCW(a, c, d) != 0 && CCW(b, d, a) != 0 && CCW(b, d, c) != 0 &&
             CCW(a, c, b) != CCW(a, c, d) && CCW(b, d, a) != CCW(b, d, c);
         #endregion
